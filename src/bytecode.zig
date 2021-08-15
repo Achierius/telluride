@@ -6,13 +6,20 @@ pub const reg_t = u8;
 pub const Opcode = enum(u8) {
     OP_NULL_OPCODE,
     OP_NOP,
+
+    // Control Flow LULW
     OP_RETURN,
+    OP_SKIP,
+
+    // Immediates & Constants
     OP_IMM_WORD, // 4B
     OP_IMM_HALF, // 2B
     OP_IMM_BYTE, // 1B
     OP_CONST_0,
     OP_CONST_1,
     OP_CONST_N1,
+
+    // Arithmetic
     OP_AR_ADD,
     OP_AR_SUB,
     OP_AR_MUL,
@@ -40,9 +47,10 @@ pub const Opcode = enum(u8) {
     OP_TAPE_OVERWRITE,
 
     // Tape head manipulation
-    OP_MOVE_HEAD,
     OP_MOVE_HEAD_L,
+    OP_MOVE_HEAD_L_N,
     OP_MOVE_HEAD_R,
+    OP_MOVE_HEAD_R_N,
     OP_WRITE_HEAD,
     OP_READ_HEAD,
 
@@ -60,13 +68,17 @@ pub fn mnemonic(opcode : Opcode) []const u8 {
 
         .OP_NULL_OPCODE      => { return "<null>"; },
         .OP_NOP,             => { return "NOP"; },
+
+        .OP_SKIP             => { return "SKP"; },
         .OP_RETURN           => { return "RETURN"; },
+
         .OP_IMM_WORD         => { return "LI"; },
         .OP_IMM_HALF         => { return "LI"; },
         .OP_IMM_BYTE         => { return "LI"; },
         .OP_CONST_0          => { return "LI"; },
         .OP_CONST_1          => { return "LI"; },
-        .OP_CONST_N1         => { return "LCN1"; },
+        .OP_CONST_N1         => { return "LI"; },
+
         .OP_AR_ADD           => { return "ADD"; },
         .OP_AR_SUB           => { return "SUB"; },
         .OP_AR_MUL           => { return "MUL"; },
@@ -77,20 +89,21 @@ pub fn mnemonic(opcode : Opcode) []const u8 {
         .OP_AR_SRL           => { return "SRL"; },
         .OP_AR_SRA           => { return "SRA"; },
 
-        .OP_ENTER            => { return "ENTER"; },
+        .OP_ENTER            => { return "ENTER"; },  // TODO debug.zig
         .OP_ACCEPT           => { return "ACCEPT"; },
         .OP_REJECT           => { return "REJECT"; },
-        .OP_GOTO_STATE       => { return "GST"; },
+        .OP_GOTO_STATE       => { return "GST"; },    // TODO debug.zig
 
-        .OP_TAPE_DEPOSIT     => { return "TAPED"; },
-        .OP_TAPE_WITHDRAW    => { return "TAPEW"; },
-      //.OP_TAPE_GETLEN      => { return "TAPEL"; },
-        .OP_TAPE_OVERWRITE   => { return "ZTAPE"; },
+        .OP_TAPE_DEPOSIT     => { return "TAPED"; },  // TODO debug.zig
+        .OP_TAPE_WITHDRAW    => { return "TAPEW"; },  // TODO debug.zig
+      //.OP_TAPE_GETLEN      => { return "TAPEL"; },  // TODO debug.zig
+        .OP_TAPE_OVERWRITE   => { return "ZTAPE"; },  // TODO debug.zig
 
-        .OP_MOVE_HEAD        => { return "MOV"; },
+        .OP_MOVE_HEAD_L_N    => { return "MOVL"; },
         .OP_MOVE_HEAD_L      => { return "MOVL"; },
+        .OP_MOVE_HEAD_R_N    => { return "MOVR"; },
         .OP_MOVE_HEAD_R      => { return "MOVR"; },
-        .OP_WRITE_HEAD       => { return "WRITE"; },
+        .OP_WRITE_HEAD       => { return "WRIT"; },
         .OP_READ_HEAD        => { return "READ"; },
 
         .OP_PRINT            => { return "PRINT"; }, // Keep at the end of the list, it's our sentinel

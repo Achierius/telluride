@@ -78,6 +78,78 @@ fn threeAddressCodeInstr(opcode : Opcode, code : *const BytecodeChunk, index : u
     return index + 4;
 }
 
+// Includes head-related opcodes
+fn tapeInstr(opcode : Opcode, code : *const BytecodeChunk, index : usize) usize {
+    switch (opcode) {
+        .OP_READ_HEAD => {
+            print("{s:<10} R[{d:0>2}] <- Tape[R[H]]\n",
+                .{mnemonic(opcode),
+                    code.byteAtIndex(index + 1)});
+            return index + 2;
+        },
+        .OP_WRITE_HEAD => {
+            print("{s:<10} R[{d:0>2}] -> Tape[R[H]]\n",
+                .{mnemonic(opcode),
+                    code.byteAtIndex(index + 1)});
+            return index + 2;
+        },
+        .OP_MOVE_HEAD_L_N, .OP_MOVE_HEAD_L, .OP_MOVE_HEAD_R_N, .OP_MOVE_HEAD_R => {
+            print("{s:<10} R[H] <- R[H] {s:<1} ",
+                  .{.mnemonic(opcode),
+                    switch(opcode) {
+                        .OP_MOVE_HEAD_R_N, .OP_MOVE_HEAD_R => ' ',
+                        .OP_MOVE_HEAD_L_N, .OP_MOVE_HEAD_L => '-',
+                        else => unreachable,
+                    }
+                   });
+            switch(opcode) {
+                .OP_MOVE_HEAD_R_N, .OP_MOVE_HEAD_L_N => {
+                     print("{d}{s:<1}\n",
+                           .{mnemonic(opcode),
+                             direction});
+                },
+                .OP_MOVE_HEAD_R, .OP_MOVE_HEAD_L => {
+                     print("1{s:<1}\n", .{direction});
+                },
+                else => {
+                    unreachable;
+                },
+            }
+        },
+        .OP_TAPE_DEPOSIT => {
+            // TODO
+            return unimplementedInstr(opcode, index);
+        },
+        .OP_TAPE_WITHDRAW => {
+            // TODO
+            return unimplementedInstr(opcode, index);
+        },
+        .OP_TAPE_OVERWRITE => {
+            // TODO
+            return unimplementedInstr(opcode, index);
+        },
+        else => {
+            print("Not a tape- or head-related opcode {x}\n", .{opcode});
+            return index + 1;
+        }
+    }
+}
+
+fn genericOneRegInstr(opcode : Opcode, code : *const BytecodeChunk, index : usize) usize {
+    print("{s:<10} R[{d:0>2}]\n",
+          .{mnemonic(opcode),
+            code.byteAtIndex(index + 1)});
+    return index + 2;
+}
+
+// TODO maybe let the byte be printed as a char at some point?
+fn genericOneByteInstr(opcode : Opcode, code : *const BytecodeChunk, index : usize) usize {
+    print("{s:<10} {d}\n",
+          .{mnemonic(opcode),
+            code.byteAtIndex(index + 1)});
+    return index + 2;
+}
+
 fn printInstr(code : *const BytecodeChunk, index : usize) usize {
     var reg = code.byteAtIndex(index + 2);
     var mode = @intToEnum(PrintMode, code.byteAtIndex(index + 1));
@@ -92,6 +164,11 @@ fn printInstr(code : *const BytecodeChunk, index : usize) usize {
         mode_text,
     });
     return index + 3;
+}
+
+fn unimplementedInstr(opcode : Opcode, index : usize) usize {
+    print("Unimplemented opcode: {x}\n", .{opcode});
+    return index + 1;
 }
 
 fn disassembleInstr(code : *const BytecodeChunk, index : usize) usize {

@@ -10,21 +10,25 @@ const interpret = @import("interpret.zig");
 var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
 var allocator = &arena.allocator;
 
+pub fn exampleGeneric(code : *BytecodeChunk) anyerror!void {
+    try compile.emitLoadImmediate(code, 1, 1, 1355);
+    try compile.emitLoadImmediate(code, 2, 2, 1);
+    try compile.emitLoadImmediate(code, 3, 3, 2);
+    try compile.emitRegisterTAC(code, 4, .OP_AR_SUB, 1, 1, 2);
+    try compile.emitRegisterTAC(code, 5, .OP_AR_MUL, 1, 1, 3);
+    try compile.emitPrint(code, 6, 1, .ASINT);
+
+    try compile.emitLoadImmediate(code, 7, 10, '\n');
+    try compile.emitPrint(code, 7, 10, .ASCHAR);
+
+    try compile.emitOpcode(code, 8, .OP_RETURN);
+}
+
 pub fn main() anyerror!void {
     var code = BytecodeChunk.init(allocator);
     defer code.deinit();
 
-    try compile.emitLoadImmediate(&code, 1, 1, 1355);
-    try compile.emitLoadImmediate(&code, 2, 2, 1);
-    try compile.emitLoadImmediate(&code, 3, 3, 2);
-    try compile.emitRegisterTAC(&code, 4, .OP_AR_SUB, 1, 1, 2);
-    try compile.emitRegisterTAC(&code, 5, .OP_AR_MUL, 1, 1, 3);
-    try compile.emitPrint(&code, 6, 1, .ASINT);
-
-    try compile.emitLoadImmediate(&code, 7, 10, '\n');
-    try compile.emitPrint(&code, 7, 10, .ASCHAR);
-
-    try compile.emitOpcode(&code, 8, .OP_RETURN);
+    try exampleGeneric(&code);
 
     debug.disassembleByteCode(&code, "disassembly");
     
