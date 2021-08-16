@@ -105,7 +105,7 @@ pub const VirtualMachine = struct {
                 //},
                 .OP_IMM_BYTE => {
                     const rd : u8 = self.byteAtOffset(1);
-                    const val : u8 = self.byteAtOffset(1);
+                    const val : u8 = self.byteAtOffset(2);
                     self.reg[rd] = val;
                     self.ip += 3;
                 },
