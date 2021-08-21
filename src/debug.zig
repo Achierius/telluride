@@ -25,15 +25,22 @@ fn immediateInstr(opcode : Opcode, code : *const BytecodeChunk, index : usize) u
     print("{s:<10} R{d:0>2} <- ", .{name, reg});
     switch (opcode) {
         .OP_IMM_WORD => {
+            const val : u32 = (@intCast(u32, code.byteAtIndex(index + 2)) <<  0)
+                            + (@intCast(u32, code.byteAtIndex(index + 3)) <<  8)
+                            + (@intCast(u32, code.byteAtIndex(index + 4)) << 16)
+                            + (@intCast(u32, code.byteAtIndex(index + 5)) << 24);
             print("{d}\n", .{1010}); // TODO
             return index + 6;
         },
         .OP_IMM_HALF => {
-            print("{d}\n", .{1010}); // TODO
+            const val : u16 = (@intCast(u16, code.byteAtIndex(index + 2)) << 0)
+                            + (@intCast(u16, code.byteAtIndex(index + 3)) << 8);
+            print("{d}\n", .{val}); // TODO
             return index + 4;
         },
         .OP_IMM_BYTE => {
-            print("{d}\n", .{code.*.byteAtIndex(index + 2)});
+            const val : u8 = code.byteAtIndex(index + 2);
+            print("{d}\n", .{val});
             return index + 3;
         },
         .OP_CONST_0 => {

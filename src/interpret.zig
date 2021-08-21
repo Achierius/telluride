@@ -16,8 +16,12 @@ pub const VirtualMachine = struct {
     const Self = @This();
 
     code : *BytecodeChunk,
-    ip : usize,
-    reg : []u32,
+    ip : usize,  // Instruction ptr
+    mp : usize,  // Machine ptr
+    mbp : usize, // Machine Base ptr
+    thp : usize, // Tape Head ptr
+    tbp : usize, // Tape Base ptr -- unused in the interpreter impl, must be set to 0
+    reg : []u32, // General-purpose registers
     tape : std.ArrayList(u8),
 
     pub fn init(allocator : *Allocator, code : *BytecodeChunk) Self {
@@ -26,6 +30,10 @@ pub const VirtualMachine = struct {
         var self = Self{
             .code = code,
             .ip = 0,
+            .mp = 0,
+            .mbp = 0,
+            .thp = 0,
+            .tbp = 0,
             .reg = arr,
             .tape = std.ArrayList(u8).init(allocator),
         };
@@ -152,6 +160,23 @@ pub const VirtualMachine = struct {
                     }
                     self.ip += 3;
                 },
+                .OP_MOVE_HEAD_L => {
+                    self.thp -= 1;
+                    if (self.thp < 0) {
+                        self.thp = 0;
+                    }
+                    self.ip += 1;
+                },
+                .OP_MOVE_HEAD_R => {
+                    self.thp += 1;
+                    if (self.thp >= self.tape.items.len) {
+                        // Double the length of the tape, writing all 0s (repr. for ƀ)
+                        self.tape.appendNTimes(0, self.tape.items.len) catch unreachable;
+                    }
+                    self.ip += 1;
+                },
+                // .OP_MOVE_HEAD_L_N => {}
+                // .OP_MOVE_HEAD_R_N => {}
                 else => {
                     print("Error: Unimplemented Opcode [{d}]\n", .{ibyte});
                     return .RUNTIME_ERROR;
