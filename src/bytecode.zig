@@ -53,6 +53,10 @@ pub const Opcode = enum(u8) {
     OP_MOVE_HEAD_R_N,
     OP_WRITE_HEAD,
     OP_READ_HEAD,
+    
+  //OP_LOAD_WORD
+  //OP_LOAD_HALF
+  //OP_LOAD_BYTE
 
     OP_PRINT,
 };
@@ -61,6 +65,12 @@ pub const PrintMode = enum(u8) {
     ASINT,
     ASHEX,
     ASCHAR,
+};
+
+pub const OpcodeData = struct {
+    opcode : Opcode,
+    mnemonic : []u8,
+
 };
 
 pub fn mnemonic(opcode : Opcode) []const u8 {
@@ -113,29 +123,30 @@ pub fn mnemonic(opcode : Opcode) []const u8 {
 pub const BytecodeChunk = struct {
     const Self = @This();
 
-    // TODO swap this part out with a SoA type impl, a la https://github.com/ziglang/zig/commit/0808d98e10c5fea27cebf912c6296b760c2b837b\
-    const TextList = std.ArrayList(struct {
-        byte : u8,
+    const LineInfo = struct {
         source_line : usize,
-    });
+    };
 
-    text : TextList,
+    text      : std.ArrayList(u8),
+    lines     : std.ArrayList(LineInfo),
     constants : std.ArrayList(Value),
 
     pub fn init(allocator: *std.mem.Allocator) Self {
         return BytecodeChunk{
-            .text = TextList.init(allocator),
+            .text      = std.ArrayList(u8).init(allocator),
+            .lines     = std.ArrayList(LineInfo).init(allocator),
             .constants = std.ArrayList(Value).init(allocator),
         };
     }
 
     pub fn deinit(self: Self) void {
         self.text.deinit();
+        self.lines.deinit();
         self.constants.deinit();
     }
 
     pub fn byteAtIndex(self: Self, index: usize) u8 {
-        return self.text.items[index].byte;
+        return self.text.items[index];
     }
 
     pub fn opcodeAtIndex(self: Self, index: usize) Opcode {
@@ -143,7 +154,7 @@ pub const BytecodeChunk = struct {
     }
 
     pub fn lineAtIndex(self: Self, index: usize) usize {
-        return self.text.items[index].source_line;
+        return self.lines.items[index].source_line;
     }
 
     pub fn getConstant(self: Self, index: usize) Value {

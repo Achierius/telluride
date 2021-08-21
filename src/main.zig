@@ -21,7 +21,7 @@ pub fn exampleGeneric(code : *BytecodeChunk) anyerror!void {
     try compile.emitLoadImmediate(code, 7, 10, '\n');
     try compile.emitPrint(code, 7, 10, .ASCHAR);
 
-    try compile.emitOpcode(code, 8, .OP_RETURN);
+    try compile.emitByte(code, 8, @enumToInt(Opcode.OP_RETURN));
 }
 
 pub fn main() anyerror!void {
