@@ -1,6 +1,9 @@
 const std = @import("std");
+const fs = std.fs;
+const warn = std.debug.warn;
 const print = std.debug.print;
 const debug = @import("debug.zig");
+const emit_bytecode = @import("emit_bytecode.zig");
 const compile = @import("compile.zig");
 const values = @import("values.zig");
 const Value = values.Value;
@@ -10,38 +13,24 @@ const interpret = @import("interpret.zig");
 var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
 var allocator = &arena.allocator;
 
-pub fn exampleGeneric(code : *BytecodeChunk) anyerror!void {
-    try compile.emitLoadImmediate(code, 1, 1, 1355);
-    try compile.emitLoadImmediate(code, 2, 2, 1);
-    try compile.emitLoadImmediate(code, 3, 3, 2);
-    try compile.emitRegisterTAC(code, 4, .OP_AR_SUB, 1, 1, 2);
-    try compile.emitRegisterTAC(code, 5, .OP_AR_MUL, 1, 1, 3);
-    try compile.emitPrint(code, 6, 1, .ASINT);
+fn readFile(path : []const u8) ![]u8 {
+    const flags = fs.File.OpenFlags {};
+    var file = try fs.openFileAbsolute(path, flags);
 
-    try compile.emitLoadImmediate(code, 7, 10, '\n');
-    try compile.emitPrint(code, 7, 10, .ASCHAR);
+    const fsize = try file.getEndPos();
 
-    try compile.emitByte(code, 8, @enumToInt(Opcode.OP_RETURN));
+    var buff = try allocator.alloc(u8, fsize);
+
+    const bytes_read = try file.read(buff[0..fsize]);
+    
+    return buff;
 }
 
 pub fn main() anyerror!void {
-    var code = BytecodeChunk.init(allocator);
-    defer code.deinit();
 
-    try exampleGeneric(&code);
+    const contents = try readFile("C:\\Users\\Marcus Plutowski\\Development\\zig-tarmac\\example.tl");
 
-    debug.disassembleByteCode(&code, "disassembly");
-    
-    const vm = interpret.VirtualMachine.init(allocator, &code);
-    print("== program output ==\n\n", .{});
-    const result = vm.run();
-    print("\n====================\n", .{});
-    if (result == .INTERPRET_SUCCESS) {
-        print("Program completed successfully\n", .{});
-    } else {
-        print("Program failed with error code {d}: {s}\n", .{
-            @enumToInt(result),
-            std.meta.tagName(result),
-        });
-    }
+    print("{s}\n", .{contents});
+
+    compile.compileBytecode(contents);
 }
