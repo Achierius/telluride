@@ -17,6 +17,8 @@ pub fn compileBytecode(source : []u8) void {
         } else {
             print("   | ", .{});
         }
+
+        // TODO emit token name instead
         print("{d:>2} '{s}'\n", .{
             @enumToInt(token.token_type),
             token.location,
