@@ -9,9 +9,7 @@ const values = @import("values.zig");
 const Value = values.Value;
 usingnamespace @import("bytecode.zig");
 const interpret = @import("interpret.zig");
-
-var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-var allocator = &arena.allocator;
+usingnamespace @import("alloc.zig");
 
 fn readFile(path : []const u8) ![]u8 {
     const flags = fs.File.OpenFlags {};

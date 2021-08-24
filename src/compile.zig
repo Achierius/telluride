@@ -3,6 +3,7 @@ const print = std.debug.print;
 const scan = @import("scanner.zig");
 const Token = scan.Token;
 const TokenType = scan.TokenType;
+const TokenValueType = scan.TokenValueType;
 
 pub fn printScannerOutput(token : Token, local_line : *usize) void {
         if(token.line != local_line.*) {
@@ -13,10 +14,22 @@ pub fn printScannerOutput(token : Token, local_line : *usize) void {
         }
 
         // TODO emit token name instead
-        print("{s:<10} '{s}'\n", .{
+        print("{s:<12} '{s}'", .{
             @tagName(token.token_type),
             token.location,
         });
+
+        switch (token.value) {
+            TokenValueType.NONE => {},
+            TokenValueType.STRING => {
+                print(" -- val: \"{s}\"", .{token.value.STRING});
+            },
+            TokenValueType.INT => {
+                print(" -- val: {d}", .{token.value.INT});
+            },
+        }
+
+        print("\n", .{});
 }
 
 pub fn compileBytecode(source : []u8) void {

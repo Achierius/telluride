@@ -1,4 +1,6 @@
 const std = @import("std");
+const mem = std.mem;
+usingnamespace @import("alloc.zig");
 
 pub const TokenType = enum {
     // Tokens requiring a lookahead of 1
@@ -17,9 +19,12 @@ pub const TokenType = enum {
     PLUS,          // +
     STAR,          // *
     CARET,         // ^
+    QUERY,         // ?
+    TILDE,         // ~
+    UNDERSCORE,    // _
     // Tokens requiring a lookahead of 2
     MINUS,         // -
-    RARROW,        // ->
+    RARROW_SINGLE, // ->
     SLASH,         // /
     SLASH_SLASH,   // //
     AMP,           // &
@@ -30,6 +35,7 @@ pub const TokenType = enum {
     BANG_EQ,       // !=
     EQ,            // =
     EQ_EQ,         // ==
+    RARROW_DOUBLE, // =>
     LT,            // <
     LT_EQ,         // <=
     SLL,           // <<
@@ -49,6 +55,16 @@ pub const TokenType = enum {
     ELSE,          // "else"
     RETURN,        // "return"
     LET,           // "let"
+    PRINT,         // "print"
+    SWITCH,        // "switch"
+    CASE,          // "case"
+    AND,           // "and"
+    OR,            // "or"
+    EXECUTE,       // "execute"
+    UNION,         // "union"
+    STRUCT,        // "struct"
+    TRUE,          // "true"
+    FALSE,         // "false"
     // Control tokens
     EOF,
     LEX_ERROR,
@@ -74,6 +90,32 @@ pub const Token = struct {
     value : TokenValue = TokenValue.NONE,
     // TODO add a way to store a value
 };
+
+fn isDigit(c : u8, base : usize) bool {
+    std.debug.assert((base == 2) or (base == 8) or
+                        (base == 10) or (base == 16));
+    return switch (c) {
+        '0', '1' => true,
+        '2', '3', '4', '5', '6', '7' => (base >= 8),
+        '8', '9' => (base >= 10),
+        'A', 'B', 'C', 'D', 'E', 'F', 'a', 'b', 'c', 'd', 'e', 'f' => (base >= 16),
+        else => false,
+    };
+}
+
+fn isAlpha(c : u8) bool {
+    return switch (c) {
+        'a'...'z' => true,
+        'A'...'Z' => true,
+        else      => false,
+    };
+}
+
+fn isIdBodyChar(c : u8) bool {
+    return isAlpha(c)
+        or isDigit(c, 10)
+        or (c == '_');
+}
 
 const Scanner = struct {
     const Self = @This();
@@ -128,22 +170,17 @@ const Scanner = struct {
         }
     }
 
-    fn isOnDigit(self : *Self, base : usize) bool {
-        std.debug.assert((base == 2) or (base == 8) or
-                         (base == 10) or (base == 16));
-        return switch (self.peek()) {
-            '0', '1' => true,
-            '2', '3', '4', '5', '6', '7' => (base >= 8),
-            '8', '9' => (base >= 10),
-            'A', 'B', 'C', 'D', 'E', 'F', 'a', 'b', 'c', 'd', 'e', 'f' => (base >= 16),
-            else => false,
-        };
-    }
-
     fn advance(self : *Self) u8 {
         const c = self.peek();
         self.head += 1;
         return c;
+    }
+
+    // Does NOT allow us to roll back the start of our current scan-element,
+    // only to walk back WITHIN it; originally just used to avoid horrible
+    // spaghetti code in lexInt with regards to base-10 integer literals
+    fn backtrack(self : *Self, n : usize) void {
+        self.head = if (self.head >= n) self.head - n else 0;
     }
 
     fn consumeWhitespace(self : *Self) void {
@@ -162,7 +199,7 @@ const Scanner = struct {
                     _ = self.advance();
                 },
                 '%' => {
-                    while (self.peek() != '\n' and !self.endFound()) {
+                    while (!self.endFound() and self.peek() != '\n') {
                         _ = self.advance();
                     }
                 },
@@ -184,16 +221,74 @@ const Scanner = struct {
             return self.makeErrorToken("Unterminated string.");
         }
 
-        // don't include opening/closing quotes
-        const str_val = self.text[1..self.head];
+        // Make sure to not include opening/closing '"'
+        const str_slice = self.text[1..self.head];
+        var str_mem = allocator.alloc(u8, str_slice.len) catch unreachable; // TODO meh
+        
+        // The memory is owned by the Token, and should be freed
+        // by the parser when it stores the associated string elsewhere
+        mem.copy(u8, str_mem, str_slice);
+
         _ = self.advance(); // consume closing quote
-        return self.makeValueToken(.STRING, TokenValue{ .STRING = str_val });
+        return self.makeValueToken(.STRING, TokenValue{ .STRING = str_mem });
     }
 
-    fn lexInt(self : *Self, c_0 : u8) Token {
+    fn lexIdentifier(self : *Self) Token {
+        while (isIdBodyChar(self.peek())) {
+            _ = self.advance();
+        }
+
+        // Default is ID, so if we fail to match any keyword we fall back to it
+        var id_type : TokenType = .ID;
+        checkKeyword: {
+            const Payload = struct {
+                bgn : usize,
+                match : []const u8,
+                result : TokenType,
+            };
+            const target : Payload = switch (self.text[0]) {
+                'o' => Payload {.bgn = 1, .match = "r", .result = .OR},
+                'i' => Payload {.bgn = 1, .match = "f", .result = .IF},
+                'a' => Payload {.bgn = 1, .match = "nd", .result = .AND},
+                'l' => Payload {.bgn = 1, .match = "et", .result = .LET},
+                'f' => Payload {.bgn = 1, .match = "alse", .result = .FALSE},
+                'c' => Payload {.bgn = 1, .match = "ase", .result = .CASE},
+                'r' => Payload {.bgn = 1, .match = "eturn", .result = .RETURN},
+                'u' => Payload {.bgn = 1, .match = "nion", .result = .UNION},
+                // TODO right now this probably overruns end of file if the file ends in a first-matching identifier (e.g. "el")
+                's' => switch (self.text[1]) {
+                    'w' => Payload {.bgn = 2, .match = "itch", .result = .SWITCH},
+                    't' => Payload {.bgn = 2, .match = "ruct", .result = .STRUCT},
+                    else => { break :checkKeyword; },
+                },
+                't' => switch (self.text[1]) {
+                    'r' => Payload {.bgn = 2, .match = "ue", .result = .TRUE},
+                    'h' => Payload {.bgn = 2, .match = "en", .result = .THEN},
+                    else => { break :checkKeyword; },
+                },
+                'e' => switch (self.text[1]) {
+                    'x' => Payload {.bgn = 2, .match = "xecute", .result = .EXECUTE},
+                    'l' => switch (self.text[2]) {
+                        'i' => Payload {.bgn = 3, .match = "f", .result = .ELIF},
+                        's' => Payload {.bgn = 3, .match = "e", .result = .ELSE},
+                        else => { break :checkKeyword; },
+                    },
+                    else => { break :checkKeyword; },
+                },
+                else => { break :checkKeyword; }, // Default to generic identifier
+            };
+            if (mem.eql(u8, self.text[target.bgn..self.head], target.match)) {
+                id_type = target.result;
+            }
+        }
+        
+        return self.makeToken(id_type);
+    }
+
+    fn lexInt(self : *Self) Token {
         var base : usize = 0;
-        var c : u8 = c_0;
-        if (c_0 == '0') {
+        var c = self.text[0]; // We assume it was consumed by an outer call to 'self.advance()'
+        if (c == '0') {
             base = switch(self.peek()) {
                 'x' => blk: {
                     _ = self.advance();
@@ -209,6 +304,7 @@ const Scanner = struct {
             };
         } else {
             base = 10;
+            self.backtrack(1);
         }
 
         var total : usize = 0;
@@ -216,11 +312,11 @@ const Scanner = struct {
             // TODO make the error handling here nicer;
             // right now e.g. 0b101120101 will be lexed as '0b1011' and '20101',
             // rather than throwing an error on the '2'
-            if (self.isOnDigit(base)) {
+            if (isDigit(c, base)) {
                 var digit = switch(c) {
                     '0'...'9' => (c - '0'),
-                    'A'...'F' => (c - 'A'),
-                    'a'...'f' => (c - 'a'),
+                    'A'...'F' => ((c - 'A') + 10),
+                    'a'...'f' => ((c - 'a') + 10),
                     else => break :digitizer,
                 };
                 total *= base;
@@ -259,7 +355,10 @@ const Scanner = struct {
             '+' => self.makeToken(.PLUS),
             '*' => self.makeToken(.STAR),
             '^' => self.makeToken(.CARET),
-            '-' => self.makeToken(if (self.match('>')) .RARROW
+            '?' => self.makeToken(.QUERY),
+            '~' => self.makeToken(.TILDE),
+            '_' => self.makeToken(.UNDERSCORE),
+            '-' => self.makeToken(if (self.match('>')) .RARROW_SINGLE
                                   else                 .MINUS),
             '/' => self.makeToken(if (self.match('/')) .SLASH_SLASH
                                   else                 .SLASH),
@@ -269,8 +368,9 @@ const Scanner = struct {
                                   else                 .PIPE),
             '!' => self.makeToken(if (self.match('=')) .BANG_EQ
                                   else                 .BANG),
-            '=' => self.makeToken(if (self.match('=')) .EQ_EQ
-                                  else                 .EQ),
+            '=' => self.makeToken(if (self.match('='))       .EQ_EQ
+                                  else (if (self.match('>')) TokenType.RARROW_DOUBLE
+                                        else                 TokenType.EQ)),
             '<' => self.makeToken(if (self.match('='))       .LT_EQ
                                   else (if (self.match('<')) TokenType.SLL // Can't use enum literal here bc Zig bug
                                         else                 TokenType.LT)),
@@ -288,7 +388,8 @@ const Scanner = struct {
                 }
             },
             '"' => self.lexString(),
-            '0'...'9' => |x| self.lexInt(x),
+            'a'...'z', 'A'...'Z' => self.lexIdentifier(),
+            '0'...'9' => self.lexInt(),
             else => self.makeErrorToken("Unexpected character."),
         };
     }
