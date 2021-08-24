@@ -119,6 +119,18 @@ const Scanner = struct {
         }
     }
 
+    fn isOnDigit(self : *Self, base : usize) bool {
+        std.debug.assert((base == 2) or (base == 8) or
+                         (base == 10) or (base == 16));
+        return switch (self.peek()) {
+            '0', '1' => true,
+            '2', '3', '4', '5', '6', '7' => (base >= 8),
+            '8', '9' => (base >= 10),
+            'A', 'B', 'C', 'D', 'E', 'F', 'a', 'b', 'c', 'd', 'e', 'f' => (base >= 16),
+            else => false,
+        };
+    }
+
     fn advance(self : *Self) u8 {
         const c = self.peek();
         self.head += 1;
@@ -155,9 +167,52 @@ const Scanner = struct {
         unreachable;
     }
 
-    fn lexInt(self : *Self) Token {
-        // TODO populate
-        unreachable;
+    fn lexInt(self : *Self, c_0 : u8) Token {
+        var base : usize = 0;
+        var c : u8 = c_0;
+        if (c_0 == '0') {
+            base = switch(self.peek()) {
+                'x' => blk: {
+                    _ = self.advance();
+                    c = self.peek();
+                    break :blk 16;
+                },
+                'b' => blk: {
+                    _ = self.advance();
+                    c = self.peek();
+                    break :blk 2;
+                },
+                else => 8,
+            };
+        } else {
+            base = 10;
+        }
+
+        var total : usize = 0;
+        digitizer: while(true) : ({ c = self.peek(); }) {
+            // TODO make the error handling here nicer;
+            // right now e.g. 0b101120101 will be lexed as '0b1011' and '20101',
+            // rather than throwing an error on the '2'
+            if (self.isOnDigit(base)) {
+                var digit = switch(c) {
+                    '0'...'9' => (c - '0'),
+                    'A'...'F' => (c - 'A'),
+                    'a'...'f' => (c - 'a'),
+                    else => break :digitizer,
+                };
+                total *= base;
+                total += digit;
+                _ = self.advance();
+            } else {
+                break :digitizer;
+            }
+        }
+        return Token {
+            .token_type = .NUMBER,
+            .location = self.text[0..self.head],
+            .line = self.line,
+            .value = TokenValue{ .INT = total },
+        };
     }
 
     pub fn scanToken(self : *Self) Token {
@@ -215,7 +270,7 @@ const Scanner = struct {
                 }
             },
             '"' => self.lexString(),
-            '0'...'9' => self.lexInt(),
+            '0'...'9' => |x| self.lexInt(x),
             else => self.makeErrorToken("Unexpected character."),
         };
     }
