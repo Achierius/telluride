@@ -90,6 +90,15 @@ const Scanner = struct {
         };
     }
 
+    fn makeValueToken(self : *Self, token_type : TokenType, value : TokenValue) Token {
+        return Token {
+            .token_type = token_type,
+            .location = self.text[0..self.head],
+            .line = self.line,
+            .value = value,
+        };
+    }
+
     fn makeErrorToken(self : *Self, message : []const u8) Token {
         return Token {
             .token_type = .LEX_ERROR,
@@ -163,8 +172,22 @@ const Scanner = struct {
     }
 
     fn lexString(self : *Self) Token {
-        // TODO populate
-        unreachable;
+        while ((self.peek() != '"') and (!self.endFound())) {
+            if (self.peek() == '\n') {
+                self.line += 1;
+            } else {
+                _ = self.advance();
+            }
+        }
+
+        if (self.endFound()) {
+            return self.makeErrorToken("Unterminated string.");
+        }
+
+        // don't include opening/closing quotes
+        const str_val = self.text[1..self.head];
+        _ = self.advance(); // consume closing quote
+        return self.makeValueToken(.STRING, TokenValue{ .STRING = str_val });
     }
 
     fn lexInt(self : *Self, c_0 : u8) Token {
@@ -207,12 +230,7 @@ const Scanner = struct {
                 break :digitizer;
             }
         }
-        return Token {
-            .token_type = .NUMBER,
-            .location = self.text[0..self.head],
-            .line = self.line,
-            .value = TokenValue{ .INT = total },
-        };
+        return self.makeValueToken(.NUMBER, TokenValue{ .INT = total });
     }
 
     pub fn scanToken(self : *Self) Token {

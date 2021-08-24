@@ -4,6 +4,21 @@ const scan = @import("scanner.zig");
 const Token = scan.Token;
 const TokenType = scan.TokenType;
 
+pub fn printScannerOutput(token : Token, local_line : *usize) void {
+        if(token.line != local_line.*) {
+            print("{d:>4} ", .{token.line});
+            local_line.* = token.line;
+        } else {
+            print("   | ", .{});
+        }
+
+        // TODO emit token name instead
+        print("{s:<10} '{s}'\n", .{
+            @tagName(token.token_type),
+            token.location,
+        });
+}
+
 pub fn compileBytecode(source : []u8) void {
     var scanner = scan.initScanner(source);
 
@@ -11,18 +26,8 @@ pub fn compileBytecode(source : []u8) void {
 
     while (true) {
         var token : Token = scanner.scanToken();
-        if(token.line != line) {
-            print("{d:>4} ", .{token.line});
-            line = token.line;
-        } else {
-            print("   | ", .{});
-        }
 
-        // TODO emit token name instead
-        print("{d:>2} '{s}'\n", .{
-            @enumToInt(token.token_type),
-            token.location,
-        });
+        printScannerOutput(token, &line);
 
         if (token.token_type == .EOF) { break; }
     }
