@@ -37,11 +37,11 @@ pub fn compileBytecode(source : []u8) void {
 
     var line : usize = 0xFFFFFFFF;
 
-    while (true) {
-        var token : Token = scanner.scanToken();
+    //while (true) {
+    //    var token : Token = scanner.scanToken();
 
-        printScannerOutput(token, &line);
+    //    printScannerOutput(token, &line);
 
-        if (token.token_type == .EOF) { break; }
-    }
+    //    if (token.token_type == .EOF) { break; }
+    //}
 }
