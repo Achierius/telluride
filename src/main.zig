@@ -26,7 +26,8 @@ fn readFile(path : []const u8) ![]u8 {
 
 pub fn main() anyerror!void {
 
-    const contents = try readFile("C:\\Users\\Marcus Plutowski\\Development\\zig-tarmac\\example.tl");
+  //const contents = try readFile("C:\\Users\\Marcus Plutowski\\Development\\zig-tarmac\\examples\\token_example.tl");
+    const contents = try readFile("C:\\Users\\Marcus Plutowski\\Development\\zig-tarmac\\examples\\parse_example.tl");
 
     print("{s}\n", .{contents});
 

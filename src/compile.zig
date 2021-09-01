@@ -1,9 +1,11 @@
 const std = @import("std");
+const allocator = @import("alloc.zig").allocator;
 const print = std.debug.print;
 const scan = @import("scanner.zig");
 const Token = scan.Token;
 const TokenType = scan.TokenType;
 const TokenValueType = scan.TokenValueType;
+const Parser = @import("parser.zig").Parser;
 
 pub fn printScannerOutput(token : Token, local_line : *usize) void {
         if(token.line != local_line.*) {
@@ -34,8 +36,12 @@ pub fn printScannerOutput(token : Token, local_line : *usize) void {
 
 pub fn compileBytecode(source : []u8) void {
     var scanner = scan.initScanner(source);
+    var parser = Parser.init(allocator, &scanner);
 
     var line : usize = 0xFFFFFFFF;
+
+    var program_ast = parser.parseProgram("");
+
 
     //while (true) {
     //    var token : Token = scanner.scanToken();
