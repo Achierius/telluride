@@ -84,25 +84,55 @@ pub const Parser = struct {
     }
 
     //TODO do I want this here like this?
-    fn parseIdentifier(self : *Self) anyerror!*Identifier {
-        var id : *Identifier = try self.allocator.create(Identifier);
+    fn parseToken(self : *Self, token_type : TokenType) anyerror!*Token {
+        var token : *Token = try self.allocator.create(Token);
         const sym = self.sym;
 
-        try self.expect(.ID);
-        id.* = sym;
+        try self.expect(token_type);
+        token.* = sym;
 
-        return id;
+        return token;
     }
 
     fn parseExpression(self : *Self) anyerror!*ExpressionNode {
         var expr : *ExpressionNode = try self.allocator.create(ExpressionNode);
 
+        // Consume outer parentheses
+        if (self.accept(.L_PAREN)) {
+            expr = try self.parseExpression();
+            try self.expect(.R_PAREN);
+            return expr;
+        }
+        
         // TODO PRATT PARSER
-        const id = try self.parseIdentifier();
+        if (self.matches(.STRING)) {
+            const string = try self.parseToken(.STRING);
 
-        expr.* = ExpressionNode{
-            .identifier = id
-        };
+            expr.body = ExpressionBody {
+                .literal = string
+            };
+        } else if (self.matches(.NUMBER)) {
+            const number = try self.parseToken(.NUMBER);
+
+            expr.body = ExpressionBody {
+                .literal = number
+            };
+        } else if (self.matches(.ID)) {
+            const id = try self.parseToken(.ID);
+
+            expr.body = ExpressionBody {
+                .identifier = id
+            };
+        } else {
+            unreachable;
+        }
+
+        // Check to see if type annotation was included
+        if (self.accept(.COLON)) {
+            expr.type_annotation = try self.parseToken(.ID);
+        } else {
+            expr.type_annotation = null;
+        }
 
         return expr;
     }
@@ -111,7 +141,7 @@ pub const Parser = struct {
         var let : *LetNode = try self.allocator.create(LetNode);
 
         try self.expect(.LET);
-        const id : *Identifier = try self.parseIdentifier();
+        const id : *Identifier = try self.parseToken(.ID);
         try self.expect(.EQ);
         const value : *ExpressionNode = try self.parseExpression();
 
@@ -160,16 +190,16 @@ pub const Parser = struct {
 
         if (self.matches(.LET)) {
             var let = try self.parseLet();
-            statement.* = StatementNode { .let_stmt = let };
+            statement.* = StatementNode { .body = StatementBody { .let_stmt = let } };
         } else if (self.matches(.RETURN)) {
             var ret = try self.parseReturn();
-            statement.* = StatementNode { .return_stmt = ret };
+            statement.* = StatementNode { .body = StatementBody { .return_stmt = ret } };
         } else if (self.matches(.IF)) {
             var if_ = try self.parseIf();
-            statement.* = StatementNode { .if_stmt = if_ };
+            statement.* = StatementNode { .body = StatementBody { .if_stmt = if_ } };
         } else if (typeInSet(self.sym, expression_first_set[0..])) {
             var expr = try self.parseExpression();
-            statement.* = StatementNode { .expr_stmt = expr };
+            statement.* = StatementNode { .body = StatementBody { .expr_stmt = expr } };
         } else {
             @panic("Invalid statement");
         }
@@ -178,15 +208,30 @@ pub const Parser = struct {
         return statement;
     }
 
-    fn parseBlock(self : *Self) anyerror!*BlockNode {
-        var block : *BlockNode = try self.allocator.create(BlockNode);
+    fn parseStatementSequence(self : *Self, allow_epsilon : bool) anyerror!std.ArrayList(StatementNode) {
         var statements = std.ArrayList(StatementNode).init(self.allocator);
+
+        if (!allow_epsilon) {
+            var statement = try self.parseStatement();
+            try statements.append(statement.*);
+        }
 
         while (typeInSet(self.sym, statement_first_set[0..])) {
             var statement = try self.parseStatement();
             try statements.append(statement.*);
             // TODO this causes kinda a memory leak - the old statement gets lost!
         }
+
+        return statements;
+    }
+
+    fn parseBlock(self : *Self) anyerror!*BlockNode {
+        var block : *BlockNode = try self.allocator.create(BlockNode);
+        var statements : std.ArrayList(StatementNode) = undefined;
+
+        try self.expect(.L_BRACE);
+        statements = try self.parseStatementSequence(true);
+        try self.expect(.R_BRACE);
 
         block.* = BlockNode {
             .statements = statements,
@@ -197,12 +242,17 @@ pub const Parser = struct {
 
     // TODO figure out how to carry around the program state properly (rn it's duped b/w scanner and the param)
     pub fn parseProgram(self : *Self, program : []const u8) anyerror!ProgramAst {
-        const block : *BlockNode = try self.parseBlock();
+        var statements : std.ArrayList(StatementNode) = undefined;
+
+        statements = try self.parseStatementSequence(false);
+
         try self.expect(.EOF);    
 
         return ProgramAst { 
-            .source_location = program,
-            .statements = block,
+            .node = AstNode {
+                .source_location = program,
+            },
+            .statements = statements,
         };
     }
 };
