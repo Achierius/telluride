@@ -36,38 +36,56 @@ pub const BinaryOperation = enum {
     bin_xor,
 };
 
+pub const AstNode = struct {
+    source_location : []const u8 = "",
+  //type : Type,
+  //value : Value,
+};
+
 pub const BinaryOpNode = struct {
+    node : AstNode = AstNode {},
     lhs : *ExpressionNode,
     operator : *BinaryOperation,
     rhs : *ExpressionNode,
 };
 
 pub const UnaryOpNode = struct {
+    node : AstNode = AstNode {},
     operator : *UnaryOperation,
     rhs : *ExpressionNode,
 };
 
 pub const CallNode = struct {
+    node : AstNode = AstNode {},
     callee : *Identifier,
     arguments : std.ArrayList(ExpressionNode),
 };
 
 pub const LetNode = struct {
+    node : AstNode = AstNode {},
     id : *Identifier, // Must have type ID
     value : *ExpressionNode,
 };
 
 pub const IfNode = struct {
+    node : AstNode = AstNode {},
     condition : *ExpressionNode,
     then_block : *BlockNode,
     else_block : *BlockNode,
 };
 
 pub const ReturnNode = struct {
+    node : AstNode = AstNode {},
     return_value : *ExpressionNode,
 };
 
-pub const ExpressionNode = union(enum) {
+pub const ExpressionNode = struct {
+    node : AstNode = AstNode {},
+    type_annotation : ?*Identifier, // TODO merge into node, or idk?
+    body : ExpressionBody,
+};
+
+pub const ExpressionBody = union(enum) {
     literal : *Literal,
     identifier : *Identifier,
     binop_expr : *BinaryOpNode,
@@ -75,7 +93,12 @@ pub const ExpressionNode = union(enum) {
     call_expr : *CallNode,
 };
 
-pub const StatementNode = union(enum) {
+pub const StatementNode = struct {
+    node : AstNode = AstNode {},
+    body : StatementBody,
+};
+
+pub const StatementBody = union(enum) {
     let_stmt  : *LetNode,
     if_stmt : *IfNode,
     return_stmt : *ReturnNode,
@@ -83,61 +106,54 @@ pub const StatementNode = union(enum) {
 };
 
 pub const BlockNode = struct {
+    node : AstNode = AstNode {},
     statements : std.ArrayList(StatementNode),
 };
 
 pub const ProgramNode = struct {
-    source_location : []const u8,
-    statements : *BlockNode,
+    node : AstNode = AstNode {},
+    statements : std.ArrayList(StatementNode),
 };
 
 pub const ProgramAst = ProgramNode;
 
 pub const Nonterminal = enum {
-    binary_op,
-    unary_op,
-    call,
-    let,
-    if_,
-    return_,
-    expression,
-    statement,
-    block,
-    program,
+    BinaryOp,
+    UnaryOp,
+    Call,
+    Let,
+    If,
+    Return,
+    Expression,
+    Statement,
+    Block,
+    Program,
 };
 
-pub const AstNode = union(Nonterminal) {
-    binary_op : BinaryOpNode,
-    unary_op : UnaryOpNode,
-    call : CallNode,
-    let : LetNode,
-    if_ : IfNode,
-    return_ : ReturnNode,
-    expression : ExpressionNode,
-    statement : StatementNode,
-    block : BlockNode,
-    program : ProgramNode,
+
+pub const AstNodePtr = union(Nonterminal) {
+    BinaryOp : *BinaryOpNode,
+    UnaryOp : *UnaryOpNode,
+    Call : *CallNode,
+    Let : *LetNode,
+    If : *IfNode,
+    Return : *ReturnNode,
+    Expression : *ExpressionNode,
+    Statement : *StatementNode,
+    Block : *BlockNode,
+    Program : *ProgramNode,
 };
 
-pub fn printAstNode(node : *AstNode) void {
-    const n_children = switch (node.*) {
-        binary_op => 3,
-        unary_op => 2,
-        call => 2,
-        let => 1,//2,
-        if_ => 3,
-        return_ => 1,
-        expression => 1,
-        statement => 1,
-        block => 1,
-        program => 1,
-    };
+pub const Terminal = enum {
+    id,
+    lit,
+    bin_op,
+    un_op,
+};
 
-    const fmt_str = "({s}" ++ (" {s}" ** n_children) ++ ")";
-
-    std.debug.print(fmt_str, .{@typeName(node.*), "x"});
-}
-
-pub fn printAst(ast : *ProgramAst) void {
-    printAstNode(ast.*);
-}
+pub const AstLeaf = union(Terminal) {
+    id : *Identifier,
+    lit : *Literal,
+    bin_op : *BinaryOperation,
+    un_op : *UnaryOperation,
+};

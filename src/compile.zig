@@ -6,6 +6,7 @@ const Token = scan.Token;
 const TokenType = scan.TokenType;
 const TokenValueType = scan.TokenValueType;
 const Parser = @import("parser.zig").Parser;
+const printAst = @import("debug/ast.zig").printAst;
 
 pub fn printScannerOutput(token : Token, local_line : *usize) void {
         if(token.line != local_line.*) {
@@ -40,8 +41,9 @@ pub fn compileBytecode(source : []u8) void {
 
     var line : usize = 0xFFFFFFFF;
 
-    var program_ast = parser.parseProgram("");
+    var program_ast = parser.parseProgram("") catch |err| return;
 
+    printAst(&program_ast);
 
     //while (true) {
     //    var token : Token = scanner.scanToken();
