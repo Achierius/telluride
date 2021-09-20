@@ -2,7 +2,6 @@ const std = @import("std");
 const fs = std.fs;
 const warn = std.debug.warn;
 const print = std.debug.print;
-const debug = @import("debug.zig");
 const emit_bytecode = @import("emit_bytecode.zig");
 const compile = @import("compile.zig");
 const values = @import("values.zig");

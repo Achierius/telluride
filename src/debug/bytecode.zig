@@ -1,8 +1,8 @@
 const std = @import("std");
 const print = std.debug.print;
 
-usingnamespace @import("bytecode.zig");
-const values = @import("values.zig");
+usingnamespace @import("../bytecode.zig");
+const values = @import("../values.zig");
 const Value = values.Value; const ValueTypeTag = values.ValueTypeTag;
 
 // OP_RETURN, OP_ACCEPT, OP_REJECT, OP_TAPE_ZERO, 
